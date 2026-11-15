@@ -1,0 +1,16 @@
+# Build
+/target
+
+# Environment
+.env
+.env.*
+
+# Logs
+*.log
+
+# Python playground
+__pycache__/
+*.pyc
+
+# Misc
+.DS_Store

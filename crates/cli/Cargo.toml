@@ -1,0 +1,31 @@
+[package]
+name = "juliana-cal"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "juliana-cal"
+path = "src/main.rs"
+
+[features]
+default = []
+server = [
+    "dep:axum",
+    "dep:tokio",
+    "dep:tracing",
+    "dep:tracing-subscriber",
+]
+
+[dependencies]
+anyhow = "1.0.104"
+axum = { version = "0.8.9", optional = true }
+clap = { version = "4.6.7", features = ["derive"] }
+juliana-cal-core = { path = "../core" }
+tokio = { version = "1", features = ["fs", "macros", "net", "rt-multi-thread", "signal"], optional = true }
+tracing = { version = "0.1.44", optional = true }
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"], optional = true }
+
+[lints]
+workspace = true
