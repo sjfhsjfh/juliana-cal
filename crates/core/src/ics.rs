@@ -5,7 +5,7 @@ use jiff::{
 
 use crate::{
     error::Error,
-    model::{Manifest, ResolvedDeadline, ResolvedManifest},
+    model::{Manifest, ResolvedEvent, ResolvedManifest, ResolvedTiming},
 };
 
 const FOLD_AT: usize = 75;
@@ -19,28 +19,21 @@ pub fn render(manifest: &Manifest) -> Result<String, Error> {
 fn render_resolved(manifest: &ResolvedManifest) -> Result<String, Error> {
     let timezone = manifest.timezone.iana_name().unwrap_or("Etc/UTC");
 
-    let Some(min_start) = manifest
-        .deadlines
-        .iter()
-        .map(|deadline| deadline.start.timestamp())
-        .min()
-    else {
-        return Err(Error::Empty);
-    };
-    let Some(max_end) = manifest
-        .deadlines
-        .iter()
-        .map(|deadline| deadline.end.timestamp())
-        .max()
-    else {
-        return Err(Error::Empty);
-    };
+    let mut min_start: Option<Timestamp> = None;
+    let mut max_end: Option<Timestamp> = None;
 
-    let window_start = Timestamp::from_second(min_start.as_second() - 365 * 24 * 60 * 60)?
-        .to_zoned(manifest.timezone.clone())
-        .start_of_day()?
-        .timestamp();
-    let window_end = Timestamp::from_second(max_end.as_second() + 365 * 24 * 60 * 60)?;
+    for event in &manifest.events {
+        if let Some((start, end)) = event.timing.bounds() {
+            min_start = Some(match min_start {
+                Some(current) if current < start => current,
+                _ => start,
+            });
+            max_end = Some(match max_end {
+                Some(current) if current > end => current,
+                _ => end,
+            });
+        }
+    }
 
     let mut out = String::new();
     write_line(&mut out, "BEGIN:VCALENDAR");
@@ -56,95 +49,124 @@ fn render_resolved(manifest: &ResolvedManifest) -> Result<String, Error> {
     );
     write_property(&mut out, "UID", &escape_text(&manifest.calendar_uid));
 
-    write_timezone(&mut out, &manifest.timezone, window_start, window_end);
+    if let (Some(min_start), Some(max_end)) = (min_start, max_end) {
+        let window_start = Timestamp::from_second(min_start.as_second() - 365 * 24 * 60 * 60)?
+            .to_zoned(manifest.timezone.clone())
+            .start_of_day()?
+            .timestamp();
+        let window_end = Timestamp::from_second(max_end.as_second() + 365 * 24 * 60 * 60)?;
+        write_timezone(&mut out, &manifest.timezone, window_start, window_end);
+    }
 
-    for deadline in &manifest.deadlines {
+    for event in &manifest.events {
         write_event(
             &mut out,
-            deadline,
+            event,
             timezone,
             &manifest.uid_domain,
             manifest.stamp,
-        );
+        )?;
     }
 
     write_line(&mut out, "END:VCALENDAR");
     Ok(out)
 }
 
+impl ResolvedTiming {
+    fn bounds(&self) -> Option<(Timestamp, Timestamp)> {
+        match self {
+            Self::Interval { start, end } => Some((start.timestamp(), end.timestamp())),
+            Self::Deadline { start, due } => Some((start.timestamp(), due.timestamp())),
+            Self::AllDay { .. } => None,
+        }
+    }
+}
+
 fn write_event(
     out: &mut String,
-    deadline: &ResolvedDeadline,
+    event: &ResolvedEvent,
     timezone: &str,
     uid_domain: &str,
     stamp: Timestamp,
-) {
-    let summary = format!("[{}] {}", deadline.course, deadline.title);
-
+) -> Result<(), Error> {
     write_line(out, "BEGIN:VEVENT");
-    write_property(out, "SUMMARY", &escape_text(&summary));
-    write_line(
-        out,
-        &format!("DTSTART;TZID={timezone}:{}", format_zoned(&deadline.start)),
-    );
-    write_line(
-        out,
-        &format!("DTEND;TZID={timezone}:{}", format_zoned(&deadline.end)),
-    );
+    write_property(out, "SUMMARY", &escape_text(&event.summary));
+
+    match &event.timing {
+        ResolvedTiming::Interval { start, end } => {
+            write_timed(out, "DTSTART", timezone, start);
+            write_timed(out, "DTEND", timezone, end);
+        }
+        ResolvedTiming::Deadline { start, due } => {
+            write_timed(out, "DTSTART", timezone, start);
+            write_timed(out, "DTEND", timezone, due);
+        }
+        ResolvedTiming::AllDay { date } => {
+            write_line(out, &format!("DTSTART;VALUE=DATE:{}", format_date(date)));
+            let next = (*date).tomorrow()?;
+            write_line(out, &format!("DTEND;VALUE=DATE:{}", format_date(&next)));
+        }
+    }
+
     write_property(out, "DTSTAMP", &format_utc(stamp));
     write_property(
         out,
         "UID",
-        &escape_text(&format!("{}@{uid_domain}", deadline.id)),
+        &escape_text(&format!("{}@{uid_domain}", event.id)),
     );
-    write_property(out, "SEQUENCE", &deadline.sequence.to_string());
-    write_property(out, "DESCRIPTION", &escape_text(&description(deadline)));
+    write_property(out, "SEQUENCE", &event.sequence.to_string());
 
-    if let Some(location) = &deadline.location {
+    if let Some(description) = &event.description
+        && !description.is_empty()
+    {
+        write_property(out, "DESCRIPTION", &escape_text(description));
+    }
+    if let Some(location) = &event.location {
         write_property(out, "LOCATION", &escape_text(location));
     }
-    if let Some(url) = &deadline.url {
+    if let Some(url) = &event.url {
         write_line(out, &format!("URL:{url}"));
     }
-    if let Some(status) = deadline.status {
+    if let Some(status) = event.status {
         write_property(out, "STATUS", status.as_str());
     }
 
-    for minutes in &deadline.alerts_before_minutes {
-        write_line(out, "BEGIN:VALARM");
-        write_property(out, "ACTION", "DISPLAY");
-        write_property(
-            out,
-            "DESCRIPTION",
-            &escape_text(&format!("{}后：{summary}", human_delta(*minutes))),
-        );
-        write_property(out, "TRIGGER", &trigger(*minutes));
-        write_line(out, "END:VALARM");
+    let related_end = matches!(&event.timing, ResolvedTiming::Deadline { .. });
+    for minutes in &event.alerts_before_minutes {
+        write_alarm(out, &event.summary, *minutes, related_end);
     }
 
     write_line(out, "END:VEVENT");
+    Ok(())
 }
 
-fn description(deadline: &ResolvedDeadline) -> String {
-    let mut parts = Vec::with_capacity(3);
+fn write_timed(out: &mut String, property: &str, timezone: &str, value: &Zoned) {
+    write_line(
+        out,
+        &format!("{property};TZID={timezone}:{}", format_zoned(value)),
+    );
+}
 
-    if let Some(kind) = &deadline.kind
-        && !kind.is_empty()
-    {
-        parts.push(format!("类型：{kind}"));
+fn write_alarm(out: &mut String, summary: &str, minutes: u32, related_end: bool) {
+    write_line(out, "BEGIN:VALARM");
+    write_property(out, "ACTION", "DISPLAY");
+    write_property(
+        out,
+        "DESCRIPTION",
+        &escape_text(&format!("{}后：{summary}", human_delta(minutes))),
+    );
+    if related_end {
+        write_line(out, &format!("TRIGGER;RELATED=END:{}", trigger(minutes)));
+    } else {
+        write_property(out, "TRIGGER", &trigger(minutes));
     }
-    parts.push(format!("课程：{}", deadline.course));
-    if let Some(note) = &deadline.note
-        && !note.is_empty()
-    {
-        parts.push(note.clone());
-    }
-
-    parts.join("\n")
+    write_line(out, "END:VALARM");
 }
 
 fn human_delta(minutes: u32) -> String {
-    if minutes.is_multiple_of(1440) {
+    if minutes == 0 {
+        "0 分钟".to_owned()
+    } else if minutes.is_multiple_of(1440) {
         format!("{} 天", minutes / 1440)
     } else if minutes.is_multiple_of(60) {
         format!("{} 小时", minutes / 60)
@@ -172,6 +194,10 @@ fn format_zoned(zoned: &Zoned) -> String {
 fn format_utc(stamp: Timestamp) -> String {
     let datetime = stamp.to_zoned(TimeZone::UTC).datetime();
     format!("{}Z", datetime.strftime("%Y%m%dT%H%M%S"))
+}
+
+fn format_date(date: &jiff::civil::Date) -> String {
+    date.strftime("%Y%m%d").to_string()
 }
 
 fn write_timezone(out: &mut String, timezone: &TimeZone, start: Timestamp, end: Timestamp) {

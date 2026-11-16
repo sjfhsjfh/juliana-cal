@@ -12,17 +12,26 @@ pub enum Error {
         source: io::Error,
     },
 
-    #[error("invalid TOML: {0}")]
+    #[error("invalid TOML")]
     Toml(#[from] toml::de::Error),
 
     #[error("unknown time zone `{0}`")]
     UnknownZone(String),
 
-    #[error("no [[deadline]] entries in manifest")]
+    #[error("no [[event]] entries in manifest")]
     Empty,
 
-    #[error("duplicate deadline id `{0}`")]
+    #[error("duplicate event id `{0}`")]
     DuplicateId(String),
+
+    #[error("event `{0}`: `start`/`end` must include a time; use `date` for an all-day event")]
+    DateOnlyInterval(String),
+
+    #[error("event `{0}`: end must be after start")]
+    EndNotAfterStart(String),
+
+    #[error("`ddl_display_minutes` must be greater than zero")]
+    InvalidDdlDisplayMinutes,
 
     #[error("`{label}`: local time without a date is not supported")]
     TimeWithoutDate { label: String },
@@ -37,8 +46,12 @@ pub enum Error {
         source: jiff::Error,
     },
 
-    #[error("deadline `{0}`: end is before start")]
-    EndBeforeStart(String),
+    #[error("`{label}`: invalid date: {source}")]
+    InvalidDate {
+        label: String,
+        #[source]
+        source: jiff::Error,
+    },
 
     #[error(transparent)]
     Jiff(#[from] jiff::Error),

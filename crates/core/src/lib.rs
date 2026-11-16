@@ -6,4 +6,6 @@ mod model;
 
 pub use error::Error;
 pub use ics::render;
-pub use model::{Deadline, EventStatus, Manifest, ResolvedDeadline, ResolvedManifest};
+pub use model::{
+    Event, EventStatus, Manifest, ResolvedEvent, ResolvedManifest, ResolvedTiming, Timing,
+};
