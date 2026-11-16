@@ -4,7 +4,7 @@ members = ["crates/cli", "crates/core", "crates/internal-tools"]
 default-members = ["crates/cli"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 license = "MIT"
 rust-version = "1.88"
@@ -12,7 +12,7 @@ repository = "https://github.com/sjfhsjfh/juliana-cal"
 readme = "README.md"
 
 [workspace.dependencies]
-juliana-cal-core = { path = "crates/core", version = "0.1.0" }
+juliana-cal-core = { path = "crates/core", version = "0.1.1" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
