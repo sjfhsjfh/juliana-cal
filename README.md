@@ -21,6 +21,8 @@ juliana-cal build deadlines.toml -o deadlines.ics
 cargo run --features server -- serve ./feeds
 ```
 
+Release binaries are built with the `server` feature enabled.
+
 ## Apple Calendar
 
 When adding the feed as a subscription, uncheck **Remove Alarms**. Otherwise

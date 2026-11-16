@@ -79,7 +79,7 @@ jobs:
           key: ${{ matrix.target }}
 
       - name: Build
-        run: cargo build --locked --release -p juliana-cal --target "${{ matrix.target }}"
+        run: cargo build --locked --release -p juliana-cal --features server --target "${{ matrix.target }}"
 
       - name: Package
         env:
@@ -94,8 +94,9 @@ jobs:
       - name: Smoke test
         run: |
           set -euo pipefail
-          output=$(./dist/juliana-cal-${{ matrix.target }}/juliana-cal --version)
-          test "$output" = "juliana-cal ${{ needs.preflight.outputs.version }}"
+          bin="./dist/juliana-cal-${{ matrix.target }}/juliana-cal"
+          test "$("$bin" --version)" = "juliana-cal ${{ needs.preflight.outputs.version }}"
+          "$bin" serve --help >/dev/null
 
       - uses: actions/upload-artifact@v7.0.2
         with:
@@ -103,8 +104,37 @@ jobs:
           path: dist/*.tar.gz
           if-no-files-found: error
 
-  release:
+  publish:
     needs: [preflight, build]
+    runs-on: ubuntu-22.04
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
+        with:
+          cache: false
+
+      - uses: Swatinem/rust-cache@v2.9.3
+
+      - uses: rust-lang/crates-io-auth-action@v1.0.6
+        id: auth
+
+      - name: Publish core
+        run: cargo publish --locked -p juliana-cal-core
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+
+      - name: Publish CLI
+        run: cargo publish --locked -p juliana-cal
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+
+  release:
+    needs: [preflight, build, publish]
     runs-on: ubuntu-22.04
     permissions:
       contents: write
