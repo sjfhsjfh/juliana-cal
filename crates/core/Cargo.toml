@@ -4,6 +4,10 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
+description = "Core manifest parsing and RFC 5545 rendering for juliana-cal"
+repository.workspace = true
+readme.workspace = true
+keywords = ["icalendar", "ics", "rfc5545", "calendar"]
 
 [dependencies]
 jiff = { version = "0.2.45", features = ["tzdb-bundle-always"] }

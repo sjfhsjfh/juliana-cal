@@ -4,6 +4,10 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
+description = "Build course-deadline ICS feeds from a TOML manifest"
+repository.workspace = true
+readme.workspace = true
+keywords = ["icalendar", "ics", "calendar", "deadlines", "cli"]
 
 [[bin]]
 name = "juliana-cal"
