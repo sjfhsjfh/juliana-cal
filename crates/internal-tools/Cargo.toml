@@ -1,0 +1,17 @@
+[package]
+name = "juliana-internal-tools"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "juliana-schema"
+path = "src/schema.rs"
+
+[dependencies]
+juliana-cal-core = { path = "../core" }
+serde_json = "1.0"
+
+[lints]
+workspace = true

@@ -1,0 +1,173 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "Event": {
+      "oneOf": [
+        {
+          "description": "Explicit timed interval.",
+          "required": [
+            "start",
+            "end"
+          ]
+        },
+        {
+          "description": "All-day event.",
+          "required": [
+            "date"
+          ]
+        },
+        {
+          "description": "Deadline.",
+          "required": [
+            "ddl"
+          ]
+        }
+      ],
+      "properties": {
+        "alerts_before_minutes": {
+          "description": "Alarm offsets in minutes before the event start or end.",
+          "items": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "date": {
+          "description": "All-day event date.",
+          "type": "string"
+        },
+        "ddl": {
+          "description": "Deadline date or date-time. A date-time renders as a timed interval ending at this moment; a date renders as an all-day event.",
+          "type": "string"
+        },
+        "description": {
+          "description": "Optional longer event description.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "end": {
+          "description": "Interval end; must be after start and include a time.",
+          "type": "string"
+        },
+        "id": {
+          "description": "Stable local id used to build the event UID.",
+          "type": "string"
+        },
+        "location": {
+          "description": "Optional event location.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sequence": {
+          "default": 0,
+          "description": "iCalendar sequence number; bump it when changing an existing event.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "start": {
+          "description": "Interval start; must include a time.",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/EventStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional event status."
+        },
+        "summary": {
+          "description": "Event title shown by calendar clients.",
+          "type": "string"
+        },
+        "url": {
+          "description": "Optional event URL.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "summary"
+      ],
+      "type": "object"
+    },
+    "EventStatus": {
+      "enum": [
+        "TENTATIVE",
+        "CONFIRMED",
+        "CANCELLED"
+      ],
+      "type": "string"
+    }
+  },
+  "properties": {
+    "calendar_name": {
+      "description": "Calendar display name (`NAME` / `X-WR-CALNAME`).",
+      "type": "string"
+    },
+    "calendar_uid": {
+      "description": "Stable calendar UID. Changing it makes clients treat the feed as new.",
+      "type": "string"
+    },
+    "ddl_display_minutes": {
+      "default": 15,
+      "description": "Display interval for `ddl = <datetime>` entries. The interval ends at\nthe deadline and starts this many minutes earlier.",
+      "format": "uint32",
+      "minimum": 1,
+      "type": "integer"
+    },
+    "default_alerts_before_minutes": {
+      "default": [],
+      "description": "Default alarm offsets in minutes before the event start or end.\nEvent-level `alerts_before_minutes` replaces this list.",
+      "items": {
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "type": "array"
+    },
+    "event": {
+      "description": "Event entries, written as `[[event]]` tables.",
+      "items": {
+        "$ref": "#/definitions/Event"
+      },
+      "type": "array"
+    },
+    "timezone": {
+      "description": "IANA time zone used for local datetimes that have no offset.",
+      "type": "string"
+    },
+    "uid_domain": {
+      "description": "Domain appended to event ids to form event UIDs.",
+      "type": "string"
+    },
+    "updated": {
+      "description": "Stable `DTSTAMP` source. Keep this fixed unless the manifest changes.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "timezone",
+    "calendar_name",
+    "calendar_uid",
+    "uid_domain",
+    "updated"
+  ],
+  "title": "Manifest",
+  "type": "object"
+}

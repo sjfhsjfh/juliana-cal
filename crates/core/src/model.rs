@@ -1,52 +1,80 @@
 use std::collections::HashSet;
 use std::path::Path;
 
+use std::borrow::Cow;
+
 use jiff::{
     SignedDuration, Timestamp, Zoned,
     civil::Date,
     tz::{TimeZone, TimeZoneDatabase},
 };
+use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
 use serde::{Deserialize, Deserializer};
 
 use crate::error::Error;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct Manifest {
+    /// IANA time zone used for local datetimes that have no offset.
     pub timezone: String,
+
+    /// Calendar display name (`NAME` / `X-WR-CALNAME`).
     pub calendar_name: String,
+
+    /// Stable calendar UID. Changing it makes clients treat the feed as new.
     pub calendar_uid: String,
+
+    /// Domain appended to event ids to form event UIDs.
     pub uid_domain: String,
 
     /// Stable `DTSTAMP` source. Keep this fixed unless the manifest changes.
+    #[schemars(with = "String")]
     pub updated: toml::value::Datetime,
 
+    /// Default alarm offsets in minutes before the event start or end.
+    /// Event-level `alerts_before_minutes` replaces this list.
     #[serde(default)]
     pub default_alerts_before_minutes: Vec<u32>,
 
     /// Display interval for `ddl = <datetime>` entries. The interval ends at
     /// the deadline and starts this many minutes earlier.
+    #[schemars(range(min = 1))]
     #[serde(default = "default_ddl_display_minutes")]
     pub ddl_display_minutes: u32,
 
+    /// Event entries, written as `[[event]]` tables.
     #[serde(default, rename = "event")]
     pub events: Vec<Event>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct Event {
+    /// Stable local id used to build the event UID.
     pub id: String,
+
+    /// Event title shown by calendar clients.
     pub summary: String,
 
     #[serde(flatten)]
+    #[schemars(flatten)]
     pub timing: Timing,
 
+    /// Optional longer event description.
     pub description: Option<String>,
+
+    /// Optional event location.
     pub location: Option<String>,
+
+    /// Optional event URL.
     pub url: Option<String>,
+
+    /// Optional event status.
     pub status: Option<EventStatus>,
 
+    /// Alarm offsets in minutes before the event start or end.
     pub alerts_before_minutes: Option<Vec<u32>>,
 
+    /// iCalendar sequence number; bump it when changing an existing event.
     #[serde(default)]
     pub sequence: u32,
 }
@@ -66,6 +94,50 @@ pub enum Timing {
     DdlDate {
         ddl: toml::value::Date,
     },
+}
+
+impl JsonSchema for Timing {
+    fn schema_name() -> Cow<'static, str> {
+        "Timing".into()
+    }
+
+    fn json_schema(_generator: &mut SchemaGenerator) -> Schema {
+        json_schema!({
+            "type": "object",
+            "properties": {
+                "start": {
+                    "type": "string",
+                    "description": "Interval start; must include a time."
+                },
+                "end": {
+                    "type": "string",
+                    "description": "Interval end; must be after start and include a time."
+                },
+                "date": {
+                    "type": "string",
+                    "description": "All-day event date."
+                },
+                "ddl": {
+                    "type": "string",
+                    "description": "Deadline date or date-time. A date-time renders as a timed interval ending at this moment; a date renders as an all-day event."
+                }
+            },
+            "oneOf": [
+                {
+                    "description": "Explicit timed interval.",
+                    "required": ["start", "end"]
+                },
+                {
+                    "description": "All-day event.",
+                    "required": ["date"]
+                },
+                {
+                    "description": "Deadline.",
+                    "required": ["ddl"]
+                }
+            ]
+        })
+    }
 }
 
 #[derive(Deserialize)]
@@ -135,7 +207,7 @@ impl<'de> Deserialize<'de> for Timing {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, JsonSchema)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum EventStatus {
     Tentative,
