@@ -5,6 +5,9 @@ mod format;
 mod timezone;
 mod writer;
 
+#[cfg(test)]
+mod tests;
+
 use jiff::{Timestamp, tz::TimeZoneDatabase};
 
 use crate::{
