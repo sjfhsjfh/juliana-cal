@@ -11,6 +11,9 @@ rust-version = "1.88"
 repository = "https://github.com/sjfhsjfh/juliana-cal"
 readme = "README.md"
 
+[workspace.dependencies]
+juliana-cal-core = { path = "crates/core", version = "0.1.0" }
+
 [workspace.lints.rust]
 unsafe_code = "forbid"
 

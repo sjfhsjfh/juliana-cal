@@ -9,6 +9,11 @@ repository.workspace = true
 readme.workspace = true
 keywords = ["icalendar", "ics", "calendar", "deadlines", "cli"]
 
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ target }.tar.gz"
+bin-dir = "{ name }-{ target }/{ bin }"
+pkg-fmt = "tgz"
+
 [[bin]]
 name = "juliana-cal"
 path = "src/main.rs"
@@ -26,7 +31,7 @@ server = [
 anyhow = "1.0.104"
 axum = { version = "0.8.9", optional = true }
 clap = { version = "4.6.7", features = ["derive"] }
-juliana-cal-core = { path = "../core" }
+juliana-cal-core.workspace = true
 tokio = { version = "1", features = ["fs", "macros", "net", "rt-multi-thread", "signal"], optional = true }
 tracing = { version = "0.1.44", optional = true }
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"], optional = true }
