@@ -258,8 +258,8 @@ fn resolve_timing(
                 return Err(Error::DateOnlyInterval(event.id.clone()));
             }
 
-            let start = to_zoned(start, timezone, &format!("{} start", event.id))?;
-            let end = to_zoned(end, timezone, &format!("{} end", event.id))?;
+            let start = to_zoned(start, timezone, format!("{} start", event.id))?;
+            let end = to_zoned(end, timezone, format!("{} end", event.id))?;
 
             if end.timestamp() <= start.timestamp() {
                 return Err(Error::EndNotAfterStart(event.id.clone()));
@@ -268,21 +268,20 @@ fn resolve_timing(
             Ok(ResolvedTiming::Interval { start, end })
         }
         Timing::Date { date } => Ok(ResolvedTiming::AllDay {
-            date: to_date(date, &format!("{} date", event.id))?,
+            date: to_date(date, format!("{} date", event.id))?,
         }),
         Timing::DdlDateTime { ddl } => {
             if ddl_display_minutes == 0 {
                 return Err(Error::InvalidDdlDisplayMinutes);
             }
 
-            let label = format!("{} ddl", event.id);
-            let due = to_zoned(ddl, timezone, &label)?;
+            let due = to_zoned(ddl, timezone, format!("{} ddl", event.id))?;
             let start =
                 due.checked_sub(SignedDuration::from_mins(i64::from(ddl_display_minutes)))?;
             Ok(ResolvedTiming::Deadline { start, due })
         }
         Timing::DdlDate { ddl } => Ok(ResolvedTiming::AllDay {
-            date: to_date(ddl, &format!("{} ddl", event.id))?,
+            date: to_date(ddl, format!("{} ddl", event.id))?,
         }),
     }
 }
@@ -290,8 +289,9 @@ fn resolve_timing(
 fn to_zoned(
     value: &toml::value::Datetime,
     timezone: &TimeZone,
-    label: &str,
+    label: impl AsRef<str>,
 ) -> Result<Zoned, Error> {
+    let label = label.as_ref();
     let Some(date) = value.date else {
         return Err(Error::TimeWithoutDate {
             label: label.to_owned(),
@@ -351,7 +351,8 @@ fn to_zoned(
     })
 }
 
-fn to_date(value: &toml::value::Date, label: &str) -> Result<Date, Error> {
+fn to_date(value: &toml::value::Date, label: impl AsRef<str>) -> Result<Date, Error> {
+    let label = label.as_ref();
     Date::new(
         i16::try_from(value.year).map_err(|_| Error::OutOfRange {
             label: label.to_owned(),
