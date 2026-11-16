@@ -36,6 +36,16 @@ pub enum Command {
         manifest: PathBuf,
     },
 
+    /// Create a starter TOML manifest.
+    New {
+        /// Path to write.
+        path: PathBuf,
+
+        /// Overwrite an existing file.
+        #[arg(long)]
+        force: bool,
+    },
+
     /// Serve a directory, preferring .ics files over .toml fallbacks.
     #[cfg(feature = "server")]
     Serve {
@@ -55,6 +65,7 @@ impl Command {
                 commands::build::run(&manifest, output.as_deref())
             }
             Command::Check { manifest } => commands::check::run(&manifest),
+            Command::New { path, force } => commands::new::run(&path, force),
             #[cfg(feature = "server")]
             Command::Serve { dir, bind } => commands::serve::run(dir, bind),
         }
