@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Format, lint, and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
+        with:
+          components: rustfmt, clippy
+          cache: false
+
+      - uses: Swatinem/rust-cache@v2.9.3
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Clippy (default features)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Clippy (all features)
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+      - name: Test (default features)
+        run: cargo test --workspace --all-targets
+
+      - name: Test (all features)
+        run: cargo test --workspace --all-targets --all-features
