@@ -55,7 +55,6 @@ fn render_resolved(manifest: &ResolvedManifest) -> Result<String, Error> {
         format!("-//{}//{}//EN", PRODID_OWNER, PRODID_PRODUCT),
     );
     writer.property("CALSCALE", "GREGORIAN");
-    writer.property("METHOD", "PUBLISH");
     writer.property("NAME", format::escape_text(manifest.calendar_name.as_str()));
     writer.property(
         "X-WR-CALNAME",
